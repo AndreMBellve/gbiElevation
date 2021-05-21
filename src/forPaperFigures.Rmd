@@ -4,6 +4,7 @@ output:
   html_document:
     df_print: paged
 ---
+List what each of the packages is for. Header with document to describe its purpose. Also seems like a lot of packages (perhaps reduce tidyverse to the core elements...)
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -37,19 +38,26 @@ mts.woody[is.na(mts.woody)] <- 0
 mts.ferns <- t(mts.ferns)
 mts.ferns[is.na(mts.ferns)] <- 0
 ```
+Maybe comment on why data is being transposed
+
 
 ## Map of GBI
 
 Figure 2 = map (to be tidied)
 
 ```{r map, echo = FALSE, message = FALSE}
+#NZ coastline file (NZTM2000)
 coast <- read_sf("../data/nz_coast_NZTM")
 
-bd <- c(1741620, 5859550, 1834360,	6012920)
-coast.gbi <- st_crop(coast, xmin = 1741620, ymin = 5859550, xmax = 1834360,	ymax = 6012920)
+#Bounding box for map
+bd <- c(xmin = 1741620, ymin = 5859550, xmax = 1834360,	ymax = 6012920)
 
+coast.gbi <- st_crop(coast, bd) #bbox good for when you have another object with boundaries
+
+#Reading in place names
 places <- read.csv('../data/map_places.csv')
 
+#Description of what the graph is for?
 ggplot(data = coast.gbi) +
   geom_sf(col = 'blue') +
   geom_point(data = places, aes(x = long.tm, y = lat.tm)) +
@@ -59,27 +67,37 @@ ggplot(data = coast.gbi) +
   annotation_scale(location = "bl", width_hint = 0.4) +
   theme_bw()
 ```
-
+Takapa's name is fucked and Aotea is not sitting on the island, but off to the left...
 
 ## Summary of species richness trends with elevation by site for the woody and ferns
 
 This will be Figure 3
 
+df is a bad name for a dataframe as there is a function called df
 ```{r richness, echo = FALSE, message = FALSE}
-df <- data.frame(elev = elev, site = site, woody = rowSums(mts.woody), ferns = rowSums(mts.ferns))
 
-df.long <- df %>%
-  pivot_longer(cols = 3:4, values_to = 'richness', names_to = 'taxa')
+richness.df <- bind_cols(elev = elev, site = site, 
+                         Woody = rowSums(mts.woody), Fern = rowSums(mts.ferns)) %>% 
+    pivot_longer(cols = 3:4, values_to = 'richness', names_to = 'taxa') #%>% 
+  #mutate(taxa = replace(taxa, taxa == "woody", "Woody"),
+  #       taxa = replace(taxa, taxa == "ferns", "Fern")) #optional - just makes for nicer names on your graph... could also be changed above
+         
 
-elev.s <- ggplot(df.long) +
+elev.s <- ggplot(richness.df) +
   geom_point(aes(x = elev, y = richness, col= site, shape = site), size = 2.5) +
   scale_colour_brewer(type = 'qual', name = "Maunga", labels = c("Hirikimata", "Ruahine", "Tataweka")) +
   labs(x = 'Elevation (m)', y = 'Species richness') +
   geom_smooth(aes(x = elev, y = richness), method = 'lm') +
-  facet_wrap(~factor(taxa, levels=c('woody', 'ferns'))) +
-  ylim(0,70) +
+  facet_wrap(~factor(taxa, levels = c('Woody', 'Fern'))) +
+  ylim(0, 70) +
   guides(shape = FALSE) +
-  theme_minimal()
+  theme_minimal() +
+  theme(axis.title = element_text(size = 16),
+                axis.text = element_text(size = 14),
+                legend.title = element_text(size = 16),
+                legend.text = element_text(size = 14),
+                strip.text = element_text(size = 16))
+
 
 elev.s
 ```
@@ -94,7 +112,7 @@ woody.dist <- vegdist(mts.woody, method = 'bray')
 ferns.dist <- vegdist(mts.ferns, method = 'bray')
 ```
 
-
+Comment this code
 ```{r woody_pairwise, echo = FALSE}
 woody.mts.dist.df <- data.frame(as.matrix(woody.dist)) %>%
   rownames_to_column(var = 'site_elev') %>%
@@ -115,7 +133,8 @@ woody.pairs.gg <- ggplot(woody.pairwise.bc) +
   scale_colour_brewer(type = 'qual', name = 'Site pair') +
   ylim(0,1) +
   guides(shape = FALSE) +
-  theme_bw()
+  theme_bw() 
+woody.pairs.gg
 ```
 
 ```{r ferns_pairwise, echo = FALSE}
@@ -139,8 +158,11 @@ ferns.pairs.gg <- ggplot(ferns.pairwise.bc) +
   scale_colour_brewer(type = 'qual', name = 'Site pair') +
   ylim(0,1) +
   guides(shape = FALSE) +
-  theme_bw()
+  theme_bw() #+
+  #coord_flip()
+ferns.pairs.gg
 ```
+Bind data for this graph and the one above and then facet?
 
 
 ```{r, echo = FALSE}
@@ -217,11 +239,11 @@ woody.mds.simp.gg <- plot.mds.gg(woody.mds, clusters = site, txt.x = 1, txt.y = 
   scale_colour_brewer(type = 'qual', name = "Maunga", labels = c("Hirikimata", "Ruahine", "Tataweka")) +
   guides(shape = FALSE) +
   theme(legend.position = "bottom")
-```
 
-```{r, echo = FALSE}
 woody.mds.simp.gg
 ```
+
+No high elevation points for Ruahine?
 
 
 ## Ordination (nMDS) for the ferns species
@@ -242,12 +264,11 @@ ferns.mds.simp.gg <- plot.mds.gg(ferns.mds, clusters = site, txt.x = 0.7, txt.y 
   scale_colour_brewer(type = 'qual', name = "Site", labels = c("Hirikimata", "Ruahine", "Tataweka")) +
   guides(shape = FALSE) +
   theme(legend.position = "bottom")
-```
 
-```{r, echo = FALSE}
 ferns.mds.simp.gg
 ```
 
+Same issue here (no 400 m + points for Ruahine, but there were on other plots)
 
 ## Range barplots
 
@@ -385,3 +406,4 @@ hira.wdy.rg | hira.fern.rg +
 all.wdy.rg | all.fern.rg +
   plot_annotation(tag_levels = 'a')
 ```
+Add a/b notation to the top of the plots?
